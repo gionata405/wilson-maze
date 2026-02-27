@@ -156,7 +156,7 @@ void drawMaze(sf::RenderWindow& win, const Maze& maze) {
         (float)(MAZE_W * CELL_SIZE + 2),
         (float)(MAZE_H * CELL_SIZE + 2)
     ));
-    bg.setPosition((float)(MARGIN - 1), (float)(MARGIN - 1));
+    bg.setPosition(sf::Vector2f((float)(MARGIN - 1), (float)(MARGIN - 1)));
     bg.setFillColor(sf::Color(40, 40, 55));
     win.draw(bg);
 
@@ -171,14 +171,14 @@ void drawMaze(sf::RenderWindow& win, const Maze& maze) {
             bool entranceNorth = (x == 0 && y == 0);
             if (!maze.hasPassage({x, y}, NORTH) && !entranceNorth) {
                 wall.setSize(sf::Vector2f((float)(CELL_SIZE + WALL_W), (float)WALL_W));
-                wall.setPosition(pos.x - WALL_W / 2.f, pos.y - WALL_W / 2.f);
+                wall.setPosition(sf::Vector2f(pos.x - WALL_W / 2.f, pos.y - WALL_W / 2.f));
                 win.draw(wall);
             }
 
             // West wall (skip entrance)
             if (!maze.hasPassage({x, y}, WEST)) {
                 wall.setSize(sf::Vector2f((float)WALL_W, (float)(CELL_SIZE + WALL_W)));
-                wall.setPosition(pos.x - WALL_W / 2.f, pos.y - WALL_W / 2.f);
+                wall.setPosition(sf::Vector2f(pos.x - WALL_W / 2.f, pos.y - WALL_W / 2.f));
                 win.draw(wall);
             }
 
@@ -186,14 +186,14 @@ void drawMaze(sf::RenderWindow& win, const Maze& maze) {
             bool exitSouth = (x == maze.width - 1 && y == maze.height - 1);
             if (!maze.hasPassage({x, y}, SOUTH) && !exitSouth) {
                 wall.setSize(sf::Vector2f((float)(CELL_SIZE + WALL_W), (float)WALL_W));
-                wall.setPosition(pos.x - WALL_W / 2.f, pos.y + CELL_SIZE - WALL_W / 2.f);
+                wall.setPosition(sf::Vector2f(pos.x - WALL_W / 2.f, pos.y + CELL_SIZE - WALL_W / 2.f));
                 win.draw(wall);
             }
 
             // East wall (right border)
             if (!maze.hasPassage({x, y}, EAST)) {
                 wall.setSize(sf::Vector2f((float)WALL_W, (float)(CELL_SIZE + WALL_W)));
-                wall.setPosition(pos.x + CELL_SIZE - WALL_W / 2.f, pos.y - WALL_W / 2.f);
+                wall.setPosition(sf::Vector2f(pos.x + CELL_SIZE - WALL_W / 2.f, pos.y - WALL_W / 2.f));
                 win.draw(wall);
             }
         }
@@ -202,14 +202,14 @@ void drawMaze(sf::RenderWindow& win, const Maze& maze) {
     // Entrance marker (top-left, opening at top)
     sf::RectangleShape entrance(sf::Vector2f((float)CELL_SIZE - WALL_W * 2, 6.f));
     entrance.setFillColor(COLOR_ENTRANCE);
-    entrance.setPosition(cellPos(0, 0).x + WALL_W, cellPos(0, 0).y - 3.f);
+    entrance.setPosition(sf::Vector2f(cellPos(0, 0).x + WALL_W, cellPos(0, 0).y - 3.f));
     win.draw(entrance);
 
     // Exit marker (bottom-right, opening at bottom)
     sf::RectangleShape exit_(sf::Vector2f((float)CELL_SIZE - WALL_W * 2, 6.f));
     exit_.setFillColor(COLOR_EXIT);
-    exit_.setPosition(cellPos(MAZE_W - 1, MAZE_H - 1).x + WALL_W,
-                      cellPos(MAZE_W - 1, MAZE_H - 1).y + CELL_SIZE - 3.f);
+    exit_.setPosition(sf::Vector2f(cellPos(MAZE_W - 1, MAZE_H - 1).x + WALL_W,
+                      cellPos(MAZE_W - 1, MAZE_H - 1).y + CELL_SIZE - 3.f));
     win.draw(exit_);
 }
 
@@ -226,12 +226,12 @@ void drawTrail(sf::RenderWindow& win, const std::vector<Cell>& trail) {
             // vertical
             int minY = std::min(a.y, b.y);
             seg.setSize(sf::Vector2f(6.f, (float)CELL_SIZE));
-            seg.setPosition(cellPos(a.x, minY).x + cx - 3.f, cellPos(a.x, minY).y + cx - 3.f);
+            seg.setPosition(sf::Vector2f(cellPos(a.x, minY).x + cx - 3.f, cellPos(a.x, minY).y + cx - 3.f));
         } else {
             // horizontal
             int minX = std::min(a.x, b.x);
             seg.setSize(sf::Vector2f((float)CELL_SIZE, 6.f));
-            seg.setPosition(cellPos(minX, a.y).x + cx - 3.f, cellPos(minX, a.y).y + cx - 3.f);
+            seg.setPosition(sf::Vector2f(cellPos(minX, a.y).x + cx - 3.f, cellPos(minX, a.y).y + cx - 3.f));
         }
         win.draw(seg);
     }
@@ -242,9 +242,9 @@ void drawPlayer(sf::RenderWindow& win, Cell player) {
     float r = CELL_SIZE * 0.3f;
     sf::CircleShape circle(r);
     circle.setFillColor(COLOR_PLAYER);
-    circle.setOrigin(r, r);
+    circle.setOrigin(sf::Vector2f(r, r));
     auto pos = cellPos(player.x, player.y);
-    circle.setPosition(pos.x + cx, pos.y + cx);
+    circle.setPosition(sf::Vector2f(pos.x + cx, pos.y + cx));
     win.draw(circle);
 }
 
@@ -253,25 +253,19 @@ void drawWinScreen(sf::RenderWindow& win, sf::Font& font) {
     overlay.setFillColor(sf::Color(0, 0, 0, 180));
     win.draw(overlay);
 
-    sf::Text text;
-    text.setFont(font);
-    text.setString("You escaped the maze!");
-    text.setCharacterSize(36);
+    sf::Text text(font, "You escaped the maze!", 36);
     text.setFillColor(sf::Color(255, 220, 80));
     text.setStyle(sf::Text::Bold);
     auto bounds = text.getLocalBounds();
-    text.setOrigin(bounds.width / 2.f, bounds.height / 2.f);
-    text.setPosition((float)win.getSize().x / 2.f, (float)win.getSize().y / 2.f - 20.f);
+    text.setOrigin(sf::Vector2f(bounds.size.x / 2.f, bounds.size.y / 2.f));
+    text.setPosition(sf::Vector2f((float)win.getSize().x / 2.f, (float)win.getSize().y / 2.f - 20.f));
     win.draw(text);
 
-    sf::Text sub;
-    sub.setFont(font);
-    sub.setString("Press R to play again or Esc to quit");
-    sub.setCharacterSize(20);
+    sf::Text sub(font, "Press R to play again or Esc to quit", 20);
     sub.setFillColor(sf::Color(200, 200, 200));
     auto sb = sub.getLocalBounds();
-    sub.setOrigin(sb.width / 2.f, sb.height / 2.f);
-    sub.setPosition((float)win.getSize().x / 2.f, (float)win.getSize().y / 2.f + 30.f);
+    sub.setOrigin(sf::Vector2f(sb.size.x / 2.f, sb.size.y / 2.f));
+    sub.setPosition(sf::Vector2f((float)win.getSize().x / 2.f, (float)win.getSize().y / 2.f + 30.f));
     win.draw(sub);
 }
 
@@ -282,17 +276,16 @@ int main() {
     int winH = MAZE_H * CELL_SIZE + MARGIN * 2;
 
     sf::RenderWindow window(
-        sf::VideoMode(winW, winH),
+        sf::VideoMode({(unsigned int)winW, (unsigned int)winH}),
         "Wilson's Maze",
-        sf::Style::Titlebar | sf::Style::Close
+        sf::State::Windowed
     );
     window.setFramerateLimit(60);
 
     sf::Font font;
-    // Try common system fonts
-    bool fontLoaded = font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
-                   || font.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf")
-                   || font.loadFromFile("/usr/share/fonts/truetype/freefont/FreeSansBold.ttf");
+    bool fontLoaded = font.openFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+                   || font.openFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf")
+                   || font.openFromFile("/usr/share/fonts/truetype/freefont/FreeSansBold.ttf");
     (void)fontLoaded;
 
     auto newGame = [&]() -> std::pair<Maze, std::vector<Cell>> {
@@ -308,16 +301,15 @@ int main() {
     bool won = false;
 
     while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
+        while (const std::optional<sf::Event> event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>())
                 window.close();
 
-            if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::Escape)
+            if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                if (keyPressed->code == sf::Keyboard::Key::Escape)
                     window.close();
 
-                if (event.key.code == sf::Keyboard::R) {
+                if (keyPressed->code == sf::Keyboard::Key::R) {
                     auto [m, t] = newGame();
                     maze  = std::move(m);
                     trail = std::move(t);
@@ -329,24 +321,21 @@ int main() {
                     Direction dir;
                     bool moved = false;
 
-                    if (event.key.code == sf::Keyboard::W) { dir = NORTH; moved = true; }
-                    if (event.key.code == sf::Keyboard::S) { dir = SOUTH; moved = true; }
-                    if (event.key.code == sf::Keyboard::A) { dir = WEST;  moved = true; }
-                    if (event.key.code == sf::Keyboard::D) { dir = EAST;  moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::W) { dir = NORTH; moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::S) { dir = SOUTH; moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::A) { dir = WEST;  moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::D) { dir = EAST;  moved = true; }
 
                     if (moved) {
                         Cell next = neighbor(player, dir);
 
-                        // Special: allow exiting bottom of last cell
                         bool isExit = (player == exit_ && dir == SOUTH);
 
                         if (isExit) {
                             won = true;
                         } else if (maze.inBounds(next) && maze.hasPassage(player, dir)) {
-                            // Check if stepping back on trail (backtrack)
                             auto it = std::find(trail.begin(), trail.end(), next);
                             if (it != trail.end()) {
-                                // Backtrack: erase trail up to and including the revisited cell
                                 trail.erase(it + 1, trail.end());
                             } else {
                                 trail.push_back(next);
