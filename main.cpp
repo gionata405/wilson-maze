@@ -5,6 +5,8 @@
 #include <chrono>
 #include <algorithm>
 #include <string>
+#include <cstdlib>
+#include <iostream>
 
 // ─── Cell & helpers ───────────────────────────────────────────────────────────
 
@@ -129,13 +131,28 @@ public:
     }
 };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Config ────────────────────────────────────────────────────────────────────
 
-const int MAZE_W   = 20;
-const int MAZE_H   = 15;
-const int CELL_SIZE = 40;
-const int WALL_W   = 3;
-const int MARGIN   = 40;
+struct Config {
+    int mazeW   = 20;
+    int mazeH   = 15;
+    int margin  = 40;
+    int wallW   = 3;
+
+    // Derived — recomputed on resize
+    int cellSize = 40;
+
+    void recomputeCellSize(int winW, int winH) {
+        int availW = winW - margin * 2;
+        int availH = winH - margin * 2;
+        cellSize = std::max(10, std::min(availW / mazeW, availH / mazeH));
+    }
+
+    int windowW() const { return mazeW * cellSize + margin * 2; }
+    int windowH() const { return mazeH * cellSize + margin * 2; }
+};
+
+// ─── Colors ────────────────────────────────────────────────────────────────────
 
 const sf::Color COLOR_BG       = sf::Color(20, 20, 30);
 const sf::Color COLOR_WALL     = sf::Color(200, 200, 220);
@@ -146,17 +163,16 @@ const sf::Color COLOR_EXIT     = sf::Color(255, 200, 60);
 
 // ─── Drawing helpers ──────────────────────────────────────────────────────────
 
-sf::Vector2f cellPos(int x, int y) {
-    return { (float)(MARGIN + x * CELL_SIZE), (float)(MARGIN + y * CELL_SIZE) };
+sf::Vector2f cellPos(int x, int y, const Config& cfg) {
+    return { (float)(cfg.margin + x * cfg.cellSize), (float)(cfg.margin + y * cfg.cellSize) };
 }
 
-void drawMaze(sf::RenderWindow& win, const Maze& maze) {
-    // Fill background
+void drawMaze(sf::RenderWindow& win, const Maze& maze, const Config& cfg) {
     sf::RectangleShape bg(sf::Vector2f(
-        (float)(MAZE_W * CELL_SIZE + 2),
-        (float)(MAZE_H * CELL_SIZE + 2)
+        (float)(cfg.mazeW * cfg.cellSize + 2),
+        (float)(cfg.mazeH * cfg.cellSize + 2)
     ));
-    bg.setPosition(sf::Vector2f((float)(MARGIN - 1), (float)(MARGIN - 1)));
+    bg.setPosition(sf::Vector2f((float)(cfg.margin - 1), (float)(cfg.margin - 1)));
     bg.setFillColor(sf::Color(40, 40, 55));
     win.draw(bg);
 
@@ -165,87 +181,91 @@ void drawMaze(sf::RenderWindow& win, const Maze& maze) {
 
     for (int y = 0; y < maze.height; y++) {
         for (int x = 0; x < maze.width; x++) {
-            auto pos = cellPos(x, y);
+            auto pos = cellPos(x, y, cfg);
+            float wf = (float)cfg.wallW;
+            float cs = (float)cfg.cellSize;
 
-            // North wall (skip if entrance opening at top-left)
             bool entranceNorth = (x == 0 && y == 0);
             if (!maze.hasPassage({x, y}, NORTH) && !entranceNorth) {
-                wall.setSize(sf::Vector2f((float)(CELL_SIZE + WALL_W), (float)WALL_W));
-                wall.setPosition(sf::Vector2f(pos.x - WALL_W / 2.f, pos.y - WALL_W / 2.f));
+                wall.setSize(sf::Vector2f(cs + wf, wf));
+                wall.setPosition(sf::Vector2f(pos.x - wf/2.f, pos.y - wf/2.f));
                 win.draw(wall);
             }
-
-            // West wall (skip entrance)
             if (!maze.hasPassage({x, y}, WEST)) {
-                wall.setSize(sf::Vector2f((float)WALL_W, (float)(CELL_SIZE + WALL_W)));
-                wall.setPosition(sf::Vector2f(pos.x - WALL_W / 2.f, pos.y - WALL_W / 2.f));
+                wall.setSize(sf::Vector2f(wf, cs + wf));
+                wall.setPosition(sf::Vector2f(pos.x - wf/2.f, pos.y - wf/2.f));
                 win.draw(wall);
             }
-
-            // South wall (bottom border)
             bool exitSouth = (x == maze.width - 1 && y == maze.height - 1);
             if (!maze.hasPassage({x, y}, SOUTH) && !exitSouth) {
-                wall.setSize(sf::Vector2f((float)(CELL_SIZE + WALL_W), (float)WALL_W));
-                wall.setPosition(sf::Vector2f(pos.x - WALL_W / 2.f, pos.y + CELL_SIZE - WALL_W / 2.f));
+                wall.setSize(sf::Vector2f(cs + wf, wf));
+                wall.setPosition(sf::Vector2f(pos.x - wf/2.f, pos.y + cs - wf/2.f));
                 win.draw(wall);
             }
-
-            // East wall (right border)
             if (!maze.hasPassage({x, y}, EAST)) {
-                wall.setSize(sf::Vector2f((float)WALL_W, (float)(CELL_SIZE + WALL_W)));
-                wall.setPosition(sf::Vector2f(pos.x + CELL_SIZE - WALL_W / 2.f, pos.y - WALL_W / 2.f));
+                wall.setSize(sf::Vector2f(wf, cs + wf));
+                wall.setPosition(sf::Vector2f(pos.x + cs - wf/2.f, pos.y - wf/2.f));
                 win.draw(wall);
             }
         }
     }
 
-    // Entrance marker (top-left, opening at top)
-    sf::RectangleShape entrance(sf::Vector2f((float)CELL_SIZE - WALL_W * 2, 6.f));
+    // Entrance / exit markers
+    float wf = (float)cfg.wallW;
+    float cs = (float)cfg.cellSize;
+
+    sf::RectangleShape entrance(sf::Vector2f(cs - wf * 2, 6.f));
     entrance.setFillColor(COLOR_ENTRANCE);
-    entrance.setPosition(sf::Vector2f(cellPos(0, 0).x + WALL_W, cellPos(0, 0).y - 3.f));
+    entrance.setPosition(sf::Vector2f(cellPos(0, 0, cfg).x + wf, cellPos(0, 0, cfg).y - 3.f));
     win.draw(entrance);
 
-    // Exit marker (bottom-right, opening at bottom)
-    sf::RectangleShape exit_(sf::Vector2f((float)CELL_SIZE - WALL_W * 2, 6.f));
-    exit_.setFillColor(COLOR_EXIT);
-    exit_.setPosition(sf::Vector2f(cellPos(MAZE_W - 1, MAZE_H - 1).x + WALL_W,
-                      cellPos(MAZE_W - 1, MAZE_H - 1).y + CELL_SIZE - 3.f));
-    win.draw(exit_);
+    sf::RectangleShape exitMark(sf::Vector2f(cs - wf * 2, 6.f));
+    exitMark.setFillColor(COLOR_EXIT);
+    auto ep = cellPos(cfg.mazeW - 1, cfg.mazeH - 1, cfg);
+    exitMark.setPosition(sf::Vector2f(ep.x + wf, ep.y + cs - 3.f));
+    win.draw(exitMark);
 }
 
-void drawTrail(sf::RenderWindow& win, const std::vector<Cell>& trail) {
+void drawTrail(sf::RenderWindow& win, const std::vector<Cell>& trail, const Config& cfg) {
     if (trail.size() < 2) return;
+    float cx = cfg.cellSize / 2.f;
     for (size_t i = 0; i + 1 < trail.size(); i++) {
         Cell a = trail[i], b = trail[i + 1];
-        float cx = CELL_SIZE / 2.f;
-
         sf::RectangleShape seg;
         seg.setFillColor(COLOR_TRAIL);
-
         if (a.x == b.x) {
-            // vertical
             int minY = std::min(a.y, b.y);
-            seg.setSize(sf::Vector2f(6.f, (float)CELL_SIZE));
-            seg.setPosition(sf::Vector2f(cellPos(a.x, minY).x + cx - 3.f, cellPos(a.x, minY).y + cx - 3.f));
+            seg.setSize(sf::Vector2f(6.f, (float)cfg.cellSize));
+            seg.setPosition(sf::Vector2f(cellPos(a.x, minY, cfg).x + cx - 3.f,
+                                         cellPos(a.x, minY, cfg).y + cx - 3.f));
         } else {
-            // horizontal
             int minX = std::min(a.x, b.x);
-            seg.setSize(sf::Vector2f((float)CELL_SIZE, 6.f));
-            seg.setPosition(sf::Vector2f(cellPos(minX, a.y).x + cx - 3.f, cellPos(minX, a.y).y + cx - 3.f));
+            seg.setSize(sf::Vector2f((float)cfg.cellSize, 6.f));
+            seg.setPosition(sf::Vector2f(cellPos(minX, a.y, cfg).x + cx - 3.f,
+                                         cellPos(minX, a.y, cfg).y + cx - 3.f));
         }
         win.draw(seg);
     }
 }
 
-void drawPlayer(sf::RenderWindow& win, Cell player) {
-    float cx = CELL_SIZE / 2.f;
-    float r = CELL_SIZE * 0.3f;
+void drawPlayer(sf::RenderWindow& win, Cell player, const Config& cfg) {
+    float cx = cfg.cellSize / 2.f;
+    float r  = cfg.cellSize * 0.3f;
     sf::CircleShape circle(r);
     circle.setFillColor(COLOR_PLAYER);
     circle.setOrigin(sf::Vector2f(r, r));
-    auto pos = cellPos(player.x, player.y);
+    auto pos = cellPos(player.x, player.y, cfg);
     circle.setPosition(sf::Vector2f(pos.x + cx, pos.y + cx));
     win.draw(circle);
+}
+
+void drawHUD(sf::RenderWindow& win, sf::Font& font, const Config& cfg) {
+    std::string info = std::to_string(cfg.mazeW) + "x" + std::to_string(cfg.mazeH)
+                     + "  WASD: move  R: new maze  +/-: resize";
+    sf::Text hud(font, info, 12);
+    hud.setFillColor(sf::Color(100, 100, 120));
+    hud.setPosition(sf::Vector2f(10.f, 4.f));
+    win.draw(hud);
 }
 
 void drawWinScreen(sf::RenderWindow& win, sf::Font& font) {
@@ -271,13 +291,16 @@ void drawWinScreen(sf::RenderWindow& win, sf::Font& font) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-int main() {
-    int winW = MAZE_W * CELL_SIZE + MARGIN * 2;
-    int winH = MAZE_H * CELL_SIZE + MARGIN * 2;
+int main(int argc, char* argv[]) {
+    Config cfg;
+
+    // Parse optional args: wilson-maze [width] [height]
+    if (argc >= 2) cfg.mazeW = std::max(5, std::atoi(argv[1]));
+    if (argc >= 3) cfg.mazeH = std::max(5, std::atoi(argv[2]));
 
     sf::RenderWindow window(
-        sf::VideoMode({(unsigned int)winW, (unsigned int)winH}),
-        "Wilson's Maze",
+        sf::VideoMode({(unsigned int)cfg.windowW(), (unsigned int)cfg.windowH()}),
+        "Wilson's Maze  " + std::to_string(cfg.mazeW) + "x" + std::to_string(cfg.mazeH),
         sf::State::Windowed
     );
     window.setFramerateLimit(60);
@@ -289,15 +312,20 @@ int main() {
     (void)fontLoaded;
 
     auto newGame = [&]() -> std::pair<Maze, std::vector<Cell>> {
-        Maze maze(MAZE_W, MAZE_H);
+        Maze maze(cfg.mazeW, cfg.mazeH);
         maze.generate();
         std::vector<Cell> trail;
-        trail.push_back({0, 0}); // start at entrance
+        trail.push_back({0, 0});
         return {std::move(maze), trail};
     };
 
+    auto resizeWindow = [&]() {
+        window.setSize({(unsigned int)cfg.windowW(), (unsigned int)cfg.windowH()});
+        window.setTitle("Wilson's Maze  " + std::to_string(cfg.mazeW) + "x" + std::to_string(cfg.mazeH));
+    };
+
     auto [maze, trail] = newGame();
-    Cell exit_ = {MAZE_W - 1, MAZE_H - 1};
+    Cell exitCell = {cfg.mazeW - 1, cfg.mazeH - 1};
     bool won = false;
 
     while (window.isOpen()) {
@@ -305,15 +333,49 @@ int main() {
             if (event->is<sf::Event::Closed>())
                 window.close();
 
+            // Handle resize
+            if (const auto* resized = event->getIf<sf::Event::Resized>()) {
+                sf::FloatRect view(sf::Vector2f(0.f, 0.f),
+                                   sf::Vector2f((float)resized->size.x, (float)resized->size.y));
+                window.setView(sf::View(view));
+                cfg.recomputeCellSize((int)resized->size.x, (int)resized->size.y);
+            }
+
             if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
                 if (keyPressed->code == sf::Keyboard::Key::Escape)
                     window.close();
 
+                // R: new maze (same size)
                 if (keyPressed->code == sf::Keyboard::Key::R) {
                     auto [m, t] = newGame();
                     maze  = std::move(m);
                     trail = std::move(t);
-                    won   = false;
+                    exitCell = {cfg.mazeW - 1, cfg.mazeH - 1};
+                    won = false;
+                }
+
+                // + / =: increase maze size
+                if (keyPressed->code == sf::Keyboard::Key::Equal ||
+                    keyPressed->code == sf::Keyboard::Key::Add) {
+                    cfg.mazeW = std::min(cfg.mazeW + 2, 60);
+                    cfg.mazeH = std::min(cfg.mazeH + 2, 45);
+                    resizeWindow();
+                    auto [m, t] = newGame();
+                    maze = std::move(m); trail = std::move(t);
+                    exitCell = {cfg.mazeW - 1, cfg.mazeH - 1};
+                    won = false;
+                }
+
+                // - : decrease maze size
+                if (keyPressed->code == sf::Keyboard::Key::Hyphen ||
+                    keyPressed->code == sf::Keyboard::Key::Subtract) {
+                    cfg.mazeW = std::max(cfg.mazeW - 2, 5);
+                    cfg.mazeH = std::max(cfg.mazeH - 2, 5);
+                    resizeWindow();
+                    auto [m, t] = newGame();
+                    maze = std::move(m); trail = std::move(t);
+                    exitCell = {cfg.mazeW - 1, cfg.mazeH - 1};
+                    won = false;
                 }
 
                 if (!won) {
@@ -321,25 +383,27 @@ int main() {
                     Direction dir;
                     bool moved = false;
 
-                    if (keyPressed->code == sf::Keyboard::Key::W) { dir = NORTH; moved = true; }
-                    if (keyPressed->code == sf::Keyboard::Key::S) { dir = SOUTH; moved = true; }
-                    if (keyPressed->code == sf::Keyboard::Key::A) { dir = WEST;  moved = true; }
-                    if (keyPressed->code == sf::Keyboard::Key::D) { dir = EAST;  moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::W || keyPressed->code == sf::Keyboard::Key::Up)
+                        { dir = NORTH; moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::S || keyPressed->code == sf::Keyboard::Key::Down)
+                        { dir = SOUTH; moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::A || keyPressed->code == sf::Keyboard::Key::Left)
+                        { dir = WEST;  moved = true; }
+                    if (keyPressed->code == sf::Keyboard::Key::D || keyPressed->code == sf::Keyboard::Key::Right)
+                        { dir = EAST;  moved = true; }
 
                     if (moved) {
                         Cell next = neighbor(player, dir);
-
-                        bool isExit = (player == exit_ && dir == SOUTH);
+                        bool isExit = (player == exitCell && dir == SOUTH);
 
                         if (isExit) {
                             won = true;
                         } else if (maze.inBounds(next) && maze.hasPassage(player, dir)) {
                             auto it = std::find(trail.begin(), trail.end(), next);
-                            if (it != trail.end()) {
+                            if (it != trail.end())
                                 trail.erase(it + 1, trail.end());
-                            } else {
+                            else
                                 trail.push_back(next);
-                            }
                         }
                     }
                 }
@@ -347,9 +411,10 @@ int main() {
         }
 
         window.clear(COLOR_BG);
-        drawMaze(window, maze);
-        drawTrail(window, trail);
-        drawPlayer(window, trail.back());
+        drawMaze(window, maze, cfg);
+        drawTrail(window, trail, cfg);
+        drawPlayer(window, trail.back(), cfg);
+        drawHUD(window, font, cfg);
         if (won) drawWinScreen(window, font);
         window.display();
     }
